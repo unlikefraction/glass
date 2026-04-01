@@ -17,7 +17,10 @@ fi
 
 mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR=""
+if [ "${BASH_SOURCE[0]-}" != "" ] && [ -e "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 
 copy_tree() {
     local from="$1"
@@ -26,23 +29,18 @@ copy_tree() {
     mkdir -p "$to"
     (
         cd "$from"
-        find . \
-            -path './.git' -prune -o \
-            -path './__pycache__' -prune -o \
-            -name '*.pyc' -prune -o \
-            -print
-    ) | while read -r item; do
-        [ "$item" = "." ] && continue
-        if [ -d "$from/$item" ]; then
-            mkdir -p "$to/$item"
-        elif [ -f "$from/$item" ]; then
-            mkdir -p "$(dirname "$to/$item")"
-            cp "$from/$item" "$to/$item"
-        fi
-    done
+        tar \
+            --exclude='.git' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            -cf - .
+    ) | (
+        cd "$to"
+        tar -xf -
+    )
 }
 
-if [ -f "$SCRIPT_DIR/glass_cli.py" ] && [ -f "$SCRIPT_DIR/glass" ]; then
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/glass_cli.py" ] && [ -f "$SCRIPT_DIR/glass" ]; then
     info "installing from local checkout"
     copy_tree "$SCRIPT_DIR" "$INSTALL_DIR"
 else
@@ -59,7 +57,7 @@ else
     TMP_DIR="$(mktemp -d /tmp/glass-install-XXXXXX)"
     trap 'rm -rf "$TMP_DIR"' EXIT
     curl -fsSL "$ARCHIVE_URL" | tar -xzf - -C "$TMP_DIR"
-    SRC_DIR="$(find "$TMP_DIR" -maxdepth 1 -type d -name 'glass-*' | head -1)"
+    SRC_DIR="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d -name 'glass-*' | head -1)"
     if [ -z "$SRC_DIR" ]; then
         error "failed to unpack glass archive."
         exit 1
