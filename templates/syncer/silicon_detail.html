@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ silicon.username }} - Glass{% endblock %}
+{% block content %}
+<section class="panel stack">
+    <div class="panel-grid">
+        <div class="panel-card stack">
+            <div class="eyebrow">silicon</div>
+            <h1>{{ silicon.username }}</h1>
+            <div class="muted">API key: <code>{{ silicon.api_key }}</code></div>
+            <form method="post" action="/sync/silicons/{{ silicon.username }}/connector/" class="stack">
+                {% csrf_token %}
+                <button type="submit">generate new connector</button>
+                <div class="muted">Generating a new connector invalidates all old connectors and active push bindings.</div>
+            </form>
+        </div>
+        <div class="panel-card stack">
+            <div class="eyebrow">latest connector</div>
+            {% with connectors.0 as latest %}
+            {% if latest %}
+            <div style="font-size:3rem;font-weight:800">{{ latest.code }}</div>
+            <div class="muted">active: {{ latest.is_active }} | used: {{ latest.used_at|default:"not yet" }}</div>
+            {% else %}
+            <div class="muted">No connector generated yet.</div>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+    <div class="panel-grid">
+        <div class="list-card">
+            <div class="eyebrow">source bindings</div>
+            {% for binding in bindings %}
+            <div class="list-row">
+                <div>
+                    <strong>{{ binding.folder_label }}</strong>
+                    <div class="muted">{{ binding.folder_fingerprint }}</div>
+                </div>
+                <div class="mono">{{ binding.is_active|yesno:"active,inactive" }}</div>
+            </div>
+            {% empty %}
+            <div class="muted">No folder has claimed this silicon yet.</div>
+            {% endfor %}
+        </div>
+        <div class="list-card">
+            <div class="eyebrow">snapshots</div>
+            {% for snapshot in snapshots %}
+            <div class="list-row">
+                <div>
+                    <strong>{{ snapshot.tree_hash|slice:":12" }}</strong>
+                    <div class="muted">{{ snapshot.created_at }}</div>
+                </div>
+                <div class="mono">{{ snapshot.archive_size }} bytes</div>
+            </div>
+            {% empty %}
+            <div class="muted">No snapshots yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

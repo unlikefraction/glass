@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load account_tags %}
+{% block title %}Glass Dashboard{% endblock %}
+{% block content %}
+<section class="panel stack">
+    <div class="panel-grid">
+        <div class="panel-card stack">
+            <div class="eyebrow">carbon</div>
+            <h1>{{ carbon.username }}</h1>
+            <div class="muted">{{ carbon.email }}</div>
+            <div class="muted">Create silicons here, then generate a one-time connector whenever you want a new machine or folder to claim push access.</div>
+        </div>
+        <div class="panel-card stack">
+            <div class="eyebrow">new silicon</div>
+            <form id="silicon-create-form" class="stack">
+                {% csrf_token %}
+                <input type="text" name="username" placeholder="examplesilicon" required>
+                <input type="text" name="display_name" placeholder="Optional display name">
+                <button type="submit">create silicon</button>
+            </form>
+            <div id="silicon-create-result" class="mono muted"></div>
+        </div>
+    </div>
+
+    <div class="list-card">
+        <div class="eyebrow">silicons</div>
+        {% for silicon in silicons %}
+        <div class="list-row">
+            <div>
+                <div><a href="/sync/silicons/{{ silicon.username }}/"><strong>{{ silicon.username }}</strong></a></div>
+                <div class="muted">{{ silicon.display_name|default:"No display name" }}</div>
+            </div>
+            <div class="mono">
+                {% with latest_codes|get_item:silicon.id as code %}
+                {% if code %}active connector: {{ code.code }}{% else %}no active connector{% endif %}
+                {% endwith %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="muted">No silicons yet.</div>
+        {% endfor %}
+    </div>
+</section>
+<script>
+document.getElementById("silicon-create-form").addEventListener("submit", async function(event) {
+    event.preventDefault();
+    const form = event.target;
+    const body = {
+        username: form.username.value,
+        display_name: form.display_name.value
+    };
+    const res = await fetch("/accounts/api/silicons/create/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+        },
+        body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    document.getElementById("silicon-create-result").textContent = data.error || ("api key: " + data.api_key);
+    if (res.ok) window.location.reload();
+});
+</script>
+{% endblock %}
