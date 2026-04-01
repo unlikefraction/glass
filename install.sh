@@ -18,8 +18,8 @@ fi
 mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 
 SCRIPT_DIR=""
-if [ "${BASH_SOURCE[0]-}" != "" ] && [ -e "${BASH_SOURCE[0]}" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ "${BASH_SOURCE:-}" != "" ] && [ -e "${BASH_SOURCE:-}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE:-}")" && pwd)"
 fi
 
 copy_tree() {
