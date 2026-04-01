@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import getpass
 import hashlib
 import json
 import io
@@ -30,6 +29,24 @@ IGNORE_NAMES = {
 def die(message):
     print(message, file=sys.stderr)
     sys.exit(1)
+
+
+def read_secret(prompt):
+    print(f"{prompt}: ", end="", flush=True)
+    chars = []
+    while True:
+        ch = sys.stdin.read(1)
+        if ch in ("\n", "\r", ""):
+            print()
+            break
+        if ch in ("\x7f", "\b"):
+            if chars:
+                chars.pop()
+                print("\b \b", end="", flush=True)
+            continue
+        chars.append(ch)
+        print("*", end="", flush=True)
+    return "".join(chars)
 
 
 def read_json_response(response):
@@ -200,7 +217,7 @@ def bind_existing_folder(folder, server):
     username = input("silicon profile username: ").strip().lower()
     if not username:
         die("A silicon profile username is required.")
-    connector_code = getpass.getpass("connector code: ").strip()
+    connector_code = read_secret("connector code").strip()
     if not connector_code:
         die("A connector code is required.")
 
@@ -301,7 +318,7 @@ def command_pull(args):
     if target.exists():
         die(f"{target} already exists.")
     username = args.folder_name.strip().lower()
-    connector_code = getpass.getpass("connector code: ").strip()
+    connector_code = read_secret("connector code").strip()
     target.mkdir(parents=True, exist_ok=False)
 
     server = args.server.rstrip("/")
