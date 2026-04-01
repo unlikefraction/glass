@@ -23,15 +23,18 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-## CLI
-
-From this repo root:
+## One-line CLI install
 
 ```bash
-chmod +x ./glass
-./glass pull mysilicon
-./glass push now
-./glass push
+curl -fsSL https://raw.githubusercontent.com/unlikefraction/glass/main/install.sh | bash
+```
+
+## CLI
+
+```bash
+glass pull mysilicon
+glass push now
+glass push
 ```
 
 `glass push` runs an hourly loop. It only uploads when the tree hash changed.
