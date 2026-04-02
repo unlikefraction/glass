@@ -115,10 +115,35 @@ class GoogleAuthCompleteView(APIView):
         )
 
 
+class ProfileView(View):
+    def get(self, request):
+        carbon = _require_carbon(request)
+        if not carbon:
+            return HttpResponseRedirect("/accounts/dashboard/")
+        return render(request, "accounts/profile.html", {"carbon": carbon})
+
+
+class CarbonUpdateView(APIView):
+    def post(self, request):
+        carbon = _require_carbon(request)
+        if not carbon:
+            return error_response("Not authenticated.", status=401)
+        username = _normalize_username(request.data.get("username"))
+        if not username:
+            return error_response("Username is required.")
+        if len(username) < 2:
+            return error_response("Username must be at least 2 characters.")
+        if Carbon.objects.filter(username=username).exclude(id=carbon.id).exists():
+            return error_response("That username is already taken.")
+        carbon.username = username
+        carbon.save(update_fields=["username"])
+        return api_response({"username": carbon.username})
+
+
 class LogoutView(View):
     def get(self, request):
         request.session.flush()
-        return HttpResponseRedirect("/accounts/dashboard/")
+        return HttpResponseRedirect("/")
 
 
 class CarbonProfileView(APIView):

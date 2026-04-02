@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block splash %}{% endblock %}
+{% block title %}{{ carbon.username }} — Glass{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>profile</h1>
+</div>
+
+<div class="panel-grid">
+    <div class="panel-card stack">
+        <div class="eyebrow">username</div>
+        <form id="username-form" class="flex gap-sm" style="align-items:flex-end">
+            {% csrf_token %}
+            <input type="text" name="username" value="{{ carbon.username }}" style="flex:1" required>
+            <button type="submit" style="width:auto;white-space:nowrap">save</button>
+        </form>
+        <div id="username-result" class="mono muted" style="font-size:0.8rem"></div>
+    </div>
+    <div class="panel-card stack">
+        <div class="eyebrow">account</div>
+        <div><strong>{{ carbon.name|default:"—" }}</strong></div>
+        <div class="muted">{{ carbon.email }}</div>
+        <div class="muted" style="font-size:0.8rem">Joined {{ carbon.created_at|timesince }} ago</div>
+        <a href="/accounts/logout/" class="btn secondary" style="margin-top:0.5rem">sign out</a>
+    </div>
+</div>
+
+<script>
+document.getElementById("username-form").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const res = await fetch("/accounts/api/carbon/update/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+        },
+        body: JSON.stringify({ username: form.username.value })
+    });
+    const data = await res.json();
+    const result = document.getElementById("username-result");
+    if (res.ok) {
+        result.textContent = "username updated.";
+        setTimeout(() => window.location.reload(), 1000);
+    } else {
+        result.textContent = data.error || "Failed to update.";
+    }
+});
+</script>
+{% endblock %}

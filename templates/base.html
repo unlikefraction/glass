@@ -27,7 +27,7 @@
         <nav>
             {% if logged_in_carbon %}
             <a href="/accounts/dashboard/">buds</a>
-            <a href="/accounts/logout/">{{ logged_in_carbon.username }}</a>
+            <a href="/accounts/profile/">{{ logged_in_carbon.username }}</a>
             {% else %}
             <a href="/accounts/dashboard/">login</a>
             {% endif %}

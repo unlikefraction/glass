@@ -213,24 +213,33 @@
 
         blast();
         await sleep(2500);
-        nameText = "GLASS";
+        nameText = "UNLIKEFRACTION";
         for (var i = 0; i <= 20; i++) { nameOpacity = i / 20; await sleep(40); }
         await sleep(800);
 
         var stages = [
-            "GLASS",
-            "GLAS~",
-            "GLA~~",
-            "GL~~~",
-            "G~~~~",
-            "~~~~~",
-            "+++++",
-            "*****",
-            ":::::",
-            "-----",
-            "_____",
-            ".....",
-            "     "
+            "UNLIKEFRACTION",
+            "UNLIKEFRACTIO~",
+            "UNLIKEFRACTI~~",
+            "UNLIKEFRACT~~~",
+            "UNLIKEFRAC~~~~",
+            "UNLIKEFRA~~~~~",
+            "UNLIKEFR~~~~~~",
+            "UNLIKEF~~~~~~~",
+            "UNLIKE~~~~~~~~",
+            "UNLIK~~~~~~~~~",
+            "UNLI~~~~~~~~~~",
+            "UNL~~~~~~~~~~~",
+            "UN~~~~~~~~~~~~",
+            "U~~~~~~~~~~~~~",
+            "~~~~~~~~~~~~~~",
+            "++++++++++++++",
+            "**************",
+            ":::::::::::::::",
+            "---------------",
+            "______________",
+            "...............",
+            "               "
         ];
         for (var s = 0; s < stages.length; s++) { nameText = stages[s]; await sleep(50); }
 
