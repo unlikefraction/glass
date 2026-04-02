@@ -26,6 +26,7 @@
 <!-- Tabs -->
 <div class="tabs">
     <a href="/sync/silicons/{{ silicon.username }}/" class="tab {% if active_tab == 'code' %}active{% endif %}">code</a>
+    <a href="/sync/silicons/{{ silicon.username }}/control/" class="tab {% if active_tab == 'control' %}active{% endif %}">control</a>
     <a href="/sync/silicons/{{ silicon.username }}/messages/" class="tab {% if active_tab == 'messages' %}active{% endif %}">messages</a>
     <a href="/sync/silicons/{{ silicon.username }}/settings/" class="tab {% if active_tab == 'settings' %}active{% endif %}">settings</a>
 </div>
@@ -120,6 +121,173 @@
     <div class="muted mt-1">Messages between buds will appear here.</div>
 </div>
 {% endif %}
+
+{% elif active_tab == 'control' %}
+<!-- Remote Control -->
+<div class="panel-grid mb-2">
+    <div class="panel-card stack">
+        <div class="eyebrow">status</div>
+        <div class="flex gap-sm" style="align-items:center">
+            <span id="status-dot" style="width:10px;height:10px;border-radius:50%;background:#666;display:inline-block"></span>
+            <span id="status-text" class="mono" style="font-size:0.85rem">checking...</span>
+        </div>
+        <div id="status-heartbeat" class="muted" style="font-size:0.75rem"></div>
+    </div>
+    <div class="panel-card stack">
+        <div class="eyebrow">commands</div>
+        <div class="flex gap-sm">
+            <button onclick="sendCommand('start')" id="btn-start" class="secondary" style="flex:1">start</button>
+            <button onclick="sendCommand('stop')" id="btn-stop" class="secondary" style="flex:1">stop</button>
+            <button onclick="sendCommand('restart')" id="btn-restart" class="secondary" style="flex:1">restart</button>
+        </div>
+        <div id="command-result" class="mono muted" style="font-size:0.75rem"></div>
+    </div>
+</div>
+
+<!-- Log Viewer -->
+<div class="file-viewer">
+    <div class="file-viewer-header">
+        <div class="flex gap-sm" style="align-items:center">
+            <span class="mono">debug logs</span>
+            <span id="log-status" class="muted" style="font-size:0.7rem">streaming...</span>
+        </div>
+        <button id="log-toggle" onclick="toggleLogStream()" class="secondary" style="padding:0.3rem 0.6rem;font-size:0.6rem;width:auto">pause</button>
+    </div>
+    <pre id="log-output" style="height:400px;overflow-y:auto;padding:1rem 1.5rem;margin:0;font-size:0.75rem;line-height:1.6;background:var(--fg);color:var(--bg)"></pre>
+</div>
+
+<!-- Command History -->
+<div class="list-section mt-3">
+    <div class="list-header">
+        <div class="eyebrow">recent commands</div>
+    </div>
+    <div id="command-history"></div>
+</div>
+
+<script>
+var username = "{{ silicon.username }}";
+var logCursor = null;
+var logStreaming = true;
+var statusInterval = null;
+var logInterval = null;
+
+function getCsrf() {
+    var value = "; " + document.cookie;
+    var parts = value.split("; csrftoken=");
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return "";
+}
+
+function sendCommand(cmd) {
+    var btns = document.querySelectorAll('[id^="btn-"]');
+    btns.forEach(function(b) { b.disabled = true; });
+    document.getElementById('command-result').textContent = 'sending ' + cmd + '...';
+    fetch("/control/api/silicons/" + username + "/command/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": getCsrf()},
+        body: JSON.stringify({command: cmd})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.error) {
+            document.getElementById('command-result').textContent = data.error;
+        } else {
+            document.getElementById('command-result').textContent = cmd + ' command sent.';
+        }
+        setTimeout(function() {
+            btns.forEach(function(b) { b.disabled = false; });
+        }, 3000);
+        fetchStatus();
+    }).catch(function() {
+        document.getElementById('command-result').textContent = 'failed to send.';
+        btns.forEach(function(b) { b.disabled = false; });
+    });
+}
+
+function fetchStatus() {
+    fetch("/control/api/silicons/" + username + "/status/", {
+        headers: {"X-CSRFToken": getCsrf()}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        var dot = document.getElementById('status-dot');
+        var text = document.getElementById('status-text');
+        var hb = document.getElementById('status-heartbeat');
+        if (data.agent_connected) {
+            var st = data.reported_status || "connected";
+            if (st === "running") {
+                dot.style.background = "#5a9a6b";
+            } else if (st === "stopped" || st === "crashed") {
+                dot.style.background = "#b85c5c";
+            } else {
+                dot.style.background = "#5a9a6b";
+            }
+            text.textContent = st;
+        } else if (data.last_heartbeat) {
+            dot.style.background = "#c9b99a";
+            text.textContent = "offline";
+        } else {
+            dot.style.background = "#666";
+            text.textContent = "no agent";
+        }
+        hb.textContent = data.last_heartbeat ? "last heartbeat: " + new Date(data.last_heartbeat).toLocaleString() : "never connected";
+
+        // Command history
+        var hist = document.getElementById('command-history');
+        if (data.recent_commands && data.recent_commands.length) {
+            hist.innerHTML = data.recent_commands.map(function(c) {
+                var badge = 'tag';
+                if (c.status === 'done') badge += ' active';
+                else if (c.status === 'failed') badge += ' inactive';
+                return '<div class="list-row"><div><span style="font-weight:500">' + c.command + '</span>' +
+                    (c.result_message ? '<span class="muted" style="margin-left:0.5rem;font-size:0.8rem">' + c.result_message + '</span>' : '') +
+                    '</div><div class="flex gap-sm" style="align-items:center"><span class="' + badge + '">' + c.status + '</span>' +
+                    '<span class="mono muted" style="font-size:0.65rem">' + new Date(c.created_at).toLocaleTimeString() + '</span></div></div>';
+            }).join('');
+        } else {
+            hist.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="muted">No commands yet.</div></div>';
+        }
+    });
+}
+
+function fetchLogs() {
+    if (!logStreaming) return;
+    var url = "/control/api/silicons/" + username + "/logs/";
+    if (logCursor) url += "?after=" + logCursor;
+    fetch(url, {headers: {"X-CSRFToken": getCsrf()}})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.logs && data.logs.length) {
+            var el = document.getElementById('log-output');
+            var wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+            data.logs.forEach(function(l) {
+                el.textContent += l.chunk + "\n";
+                logCursor = l.id;
+            });
+            // Keep last ~500 lines
+            var lines = el.textContent.split("\n");
+            if (lines.length > 500) {
+                el.textContent = lines.slice(-500).join("\n");
+            }
+            if (wasAtBottom) el.scrollTop = el.scrollHeight;
+        }
+    });
+}
+
+function toggleLogStream() {
+    logStreaming = !logStreaming;
+    var btn = document.getElementById('log-toggle');
+    var status = document.getElementById('log-status');
+    if (logStreaming) {
+        btn.textContent = 'pause';
+        status.textContent = 'streaming...';
+    } else {
+        btn.textContent = 'resume';
+        status.textContent = 'paused';
+    }
+}
+
+fetchStatus();
+fetchLogs();
+statusInterval = setInterval(fetchStatus, 5000);
+logInterval = setInterval(fetchLogs, 3000);
+</script>
 
 {% elif active_tab == 'settings' %}
 <!-- Settings -->

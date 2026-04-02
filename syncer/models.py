@@ -26,6 +26,8 @@ class Silicon(models.Model):
     api_key_last_used = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    last_heartbeat = models.DateTimeField(null=True, blank=True)
+    reported_status = models.CharField(max_length=32, blank=True, default="")
 
     class Meta:
         db_table = "silicons"

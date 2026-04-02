@@ -12,6 +12,7 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     path("sync/", include("syncer.urls")),
     path("messages/", include("messaging.urls")),
+    path("control/", include("control.urls")),
 ]
 
 if settings.DEBUG:

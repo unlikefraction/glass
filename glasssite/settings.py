@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "syncer",
     "messaging",
     "core",
+    "control",
 ]
 
 MIDDLEWARE = [

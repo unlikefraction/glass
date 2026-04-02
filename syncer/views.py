@@ -397,6 +397,27 @@ class SiliconConversationView(View):
         )
 
 
+class SiliconControlView(View):
+    def get(self, request, username):
+        carbon = _require_carbon(request)
+        if not carbon:
+            return redirect("/accounts/dashboard/")
+        silicon = Silicon.objects.filter(owner=carbon, username=username).first()
+        if not silicon:
+            raise Http404
+        return render(
+            request,
+            "syncer/silicon_detail.html",
+            {
+                "silicon": silicon,
+                "connectors": [],
+                "bindings": [],
+                "snapshots": [],
+                "active_tab": "control",
+            },
+        )
+
+
 class SiliconSettingsView(View):
     def get(self, request, username):
         carbon = _require_carbon(request)
