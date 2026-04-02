@@ -126,22 +126,39 @@
 <!-- Remote Control -->
 <div class="panel-grid mb-2">
     <div class="panel-card stack">
-        <div class="eyebrow">status</div>
+        <div class="eyebrow">glass agent</div>
         <div class="flex gap-sm" style="align-items:center">
-            <span id="status-dot" style="width:10px;height:10px;border-radius:50%;background:#666;display:inline-block"></span>
-            <span id="status-text" class="mono" style="font-size:0.85rem">checking...</span>
+            <span id="agent-dot" style="width:10px;height:10px;border-radius:50%;background:#666;display:inline-block"></span>
+            <span id="agent-text" class="mono" style="font-size:0.85rem">checking...</span>
         </div>
-        <div id="status-heartbeat" class="muted" style="font-size:0.75rem"></div>
+        <div id="agent-heartbeat" class="muted" style="font-size:0.75rem"></div>
     </div>
     <div class="panel-card stack">
-        <div class="eyebrow">commands</div>
-        <div class="flex gap-sm">
-            <button onclick="sendCommand('start')" id="btn-start" class="secondary" style="flex:1">start</button>
-            <button onclick="sendCommand('stop')" id="btn-stop" class="secondary" style="flex:1">stop</button>
-            <button onclick="sendCommand('restart')" id="btn-restart" class="secondary" style="flex:1">restart</button>
+        <div class="eyebrow">bud status</div>
+        <div class="flex gap-sm" style="align-items:center">
+            <span id="status-dot" style="width:10px;height:10px;border-radius:50%;background:#666;display:inline-block"></span>
+            <span id="status-text" class="mono" style="font-size:0.85rem">—</span>
         </div>
-        <div id="command-result" class="mono muted" style="font-size:0.75rem"></div>
     </div>
+</div>
+
+<!-- Controls (disabled when agent offline) -->
+<div id="controls-section">
+    <div class="panel-grid mb-2">
+        <div class="panel-card stack">
+            <div class="eyebrow">commands</div>
+            <div class="flex gap-sm">
+                <button onclick="sendCommand('start')" id="btn-start" class="secondary" style="flex:1" disabled>start</button>
+                <button onclick="sendCommand('stop')" id="btn-stop" class="secondary" style="flex:1" disabled>stop</button>
+                <button onclick="sendCommand('restart')" id="btn-restart" class="secondary" style="flex:1" disabled>restart</button>
+            </div>
+            <div id="command-result" class="mono muted" style="font-size:0.75rem"></div>
+        </div>
+    </div>
+</div>
+<div id="controls-offline" class="empty-state mb-2" style="display:none;padding:1.5rem">
+    <div class="muted">Controls unavailable — glass agent is not connected.</div>
+    <div class="mono muted mt-1" style="font-size:0.75rem">Start the agent with: <code>silicon agent start {{ silicon.username }}</code></div>
 </div>
 
 <!-- Log Viewer -->
@@ -206,27 +223,52 @@ function fetchStatus() {
     fetch("/control/api/silicons/" + username + "/status/", {
         headers: {"X-CSRFToken": getCsrf()}
     }).then(function(r) { return r.json(); }).then(function(data) {
-        var dot = document.getElementById('status-dot');
-        var text = document.getElementById('status-text');
-        var hb = document.getElementById('status-heartbeat');
+        var agentDot = document.getElementById('agent-dot');
+        var agentText = document.getElementById('agent-text');
+        var agentHb = document.getElementById('agent-heartbeat');
+        var statusDot = document.getElementById('status-dot');
+        var statusText = document.getElementById('status-text');
+        var controlsSection = document.getElementById('controls-section');
+        var controlsOffline = document.getElementById('controls-offline');
+        var btns = document.querySelectorAll('[id^="btn-"]');
+
+        // Agent connection state
         if (data.agent_connected) {
-            var st = data.reported_status || "connected";
-            if (st === "running") {
-                dot.style.background = "#5a9a6b";
-            } else if (st === "stopped" || st === "crashed") {
-                dot.style.background = "#b85c5c";
-            } else {
-                dot.style.background = "#5a9a6b";
-            }
-            text.textContent = st;
+            agentDot.style.background = "#5a9a6b";
+            agentText.textContent = "connected";
+            controlsSection.style.display = '';
+            controlsOffline.style.display = 'none';
+            btns.forEach(function(b) { b.disabled = false; });
         } else if (data.last_heartbeat) {
-            dot.style.background = "#c9b99a";
-            text.textContent = "offline";
+            agentDot.style.background = "#c9b99a";
+            agentText.textContent = "offline";
+            controlsSection.style.display = 'none';
+            controlsOffline.style.display = '';
         } else {
-            dot.style.background = "#666";
-            text.textContent = "no agent";
+            agentDot.style.background = "#666";
+            agentText.textContent = "never connected";
+            controlsSection.style.display = 'none';
+            controlsOffline.style.display = '';
         }
-        hb.textContent = data.last_heartbeat ? "last heartbeat: " + new Date(data.last_heartbeat).toLocaleString() : "never connected";
+        agentHb.textContent = data.last_heartbeat ? "last seen: " + new Date(data.last_heartbeat).toLocaleString() : "";
+
+        // Bud process status
+        if (data.agent_connected && data.reported_status) {
+            var st = data.reported_status;
+            if (st === "running") {
+                statusDot.style.background = "#5a9a6b";
+            } else if (st === "stopped") {
+                statusDot.style.background = "#666";
+            } else if (st === "crashed") {
+                statusDot.style.background = "#b85c5c";
+            } else {
+                statusDot.style.background = "#c9b99a";
+            }
+            statusText.textContent = st;
+        } else {
+            statusDot.style.background = "#666";
+            statusText.textContent = "—";
+        }
 
         // Command history
         var hist = document.getElementById('command-history');
