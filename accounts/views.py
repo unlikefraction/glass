@@ -1,15 +1,46 @@
+from urllib.parse import urlencode
+
+import requests as http_requests
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.views import View
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token
 from rest_framework.views import APIView
 
 from accounts.models import Carbon
 from core.utils import api_response, error_response
 from syncer.models import ConnectorCode, Silicon
+
+
+def _build_google_auth_url():
+    """Build Google OAuth implicit flow URL."""
+    if not settings.GOOGLE_CLIENT_ID:
+        return None
+    redirect_uri = settings.GLASS_PUBLIC_URL.rstrip("/") + "/accounts/auth/google/callback/"
+    params = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "token",
+        "scope": "profile email",
+        "prompt": "select_account",
+    }
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
+
+
+def _get_google_userinfo(access_token):
+    """Validate a Google access token by calling the userinfo API."""
+    try:
+        resp = http_requests.get(
+            "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+    return None
 
 
 def _normalize_username(value):
@@ -43,7 +74,7 @@ class DashboardView(View):
             return render(
                 request,
                 "accounts/login.html",
-                {"google_client_id": settings.GOOGLE_CLIENT_ID},
+                {"google_auth_url": _build_google_auth_url()},
             )
 
         silicons = Silicon.objects.filter(owner=carbon).order_by("username").prefetch_related("connector_codes")
@@ -64,25 +95,27 @@ class GoogleCallbackPageView(View):
 
 class GoogleAuthCompleteView(APIView):
     def post(self, request):
-        credential = request.data.get("credential") or request.data.get("id_token")
-        if not credential:
-            return error_response("credential is required.")
-        if not settings.GOOGLE_CLIENT_ID:
-            return error_response("GOOGLE_CLIENT_ID is not configured.", status=500)
+        access_token = (request.data.get("access_token") or "").strip()
+        if not access_token:
+            return error_response("access_token is required.")
 
-        try:
-            payload = id_token.verify_oauth2_token(
-                credential,
-                google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID,
-            )
-        except Exception:
-            return error_response("Invalid Google credential.", status=401)
+        google_data = _get_google_userinfo(access_token)
+        if not google_data:
+            return error_response("Invalid or expired Google token.", status=401)
 
-        email = (payload.get("email") or "").lower().strip()
-        google_sub = payload.get("sub") or ""
-        if not email or not google_sub:
+        email = (google_data.get("email") or "").lower().strip()
+        verified = google_data.get("verified_email", False)
+        google_sub = google_data.get("id") or ""
+
+        if not email:
+            return error_response("Google did not return an email.", status=400)
+        if not verified:
+            return error_response("Email is not verified by Google.", status=400)
+        if not google_sub:
             return error_response("Google did not return a usable identity.", status=400)
+
+        name = google_data.get("name", "")
+        picture = google_data.get("picture", "")
 
         with transaction.atomic():
             carbon, created = Carbon.objects.get_or_create(
@@ -90,8 +123,8 @@ class GoogleAuthCompleteView(APIView):
                 defaults={
                     "email": email,
                     "username": _next_available_username(email.split("@", 1)[0]),
-                    "name": payload.get("name", ""),
-                    "avatar_url": payload.get("picture", ""),
+                    "name": name,
+                    "avatar_url": picture,
                 },
             )
             if not created:
@@ -99,11 +132,11 @@ class GoogleAuthCompleteView(APIView):
                 if carbon.email != email:
                     carbon.email = email
                     changed = True
-                if payload.get("name") and carbon.name != payload["name"]:
-                    carbon.name = payload["name"]
+                if name and carbon.name != name:
+                    carbon.name = name
                     changed = True
-                if payload.get("picture") and carbon.avatar_url != payload["picture"]:
-                    carbon.avatar_url = payload["picture"]
+                if picture and carbon.avatar_url != picture:
+                    carbon.avatar_url = picture
                     changed = True
                 if changed:
                     carbon.save(update_fields=["email", "name", "avatar_url"])

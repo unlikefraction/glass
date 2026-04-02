@@ -10,21 +10,10 @@
 <div class="panel-grid">
     <div class="panel-card stack">
         <div class="eyebrow">account</div>
-        {% if google_client_id %}
-        <div id="g_id_onload"
-             data-client_id="{{ google_client_id }}"
-             data-callback="onGlassGoogleCredential"
-             data-auto_prompt="true"
-             data-context="signin"></div>
-        <div class="g_id_signin"
-             data-type="standard"
-             data-size="large"
-             data-theme="outline"
-             data-text="signin_with"
-             data-shape="rectangular"></div>
-        <div id="login-status" class="mono muted" style="font-size:0.8rem"></div>
+        {% if google_auth_url %}
+        <a href="{{ google_auth_url }}" class="btn" style="text-align:center">sign in with google</a>
         {% else %}
-        <p class="muted">Set <code>GOOGLE_CLIENT_ID</code> before using login.</p>
+        <p class="muted">Google sign-in is not configured.</p>
         {% endif %}
     </div>
     <div class="panel-card stack">
@@ -36,37 +25,4 @@
         </div>
     </div>
 </div>
-
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<script>
-function onGlassGoogleCredential(response) {
-    var status = document.getElementById('login-status');
-    if (status) status.textContent = 'signing in...';
-    fetch("/accounts/auth/google/complete/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCookie("csrftoken")
-        },
-        body: JSON.stringify({ credential: response.credential })
-    }).then(function(res) {
-        if (res.ok) {
-            if (status) status.textContent = 'redirecting...';
-            window.location.href = "/accounts/dashboard/";
-            return;
-        }
-        return res.json().then(function(data) {
-            if (status) status.textContent = data.error || "Sign-in failed.";
-        });
-    }).catch(function() {
-        if (status) status.textContent = "Network error. Please try again.";
-    });
-}
-function getCookie(name) {
-    var value = "; " + document.cookie;
-    var parts = value.split("; " + name + "=");
-    if (parts.length === 2) return parts.pop().split(";").shift();
-    return "";
-}
-</script>
 {% endblock %}
