@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block splash %}{% endblock %}
+{% block title %}Messages with {{ other_username }} — {{ silicon.username }} — Glass{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="/accounts/dashboard/">buds</a>
+    <span>/</span>
+    <a href="/sync/silicons/{{ silicon.username }}/">{{ silicon.username }}</a>
+    <span>/</span>
+    <a href="/sync/silicons/{{ silicon.username }}/messages/">messages</a>
+    <span>/</span>
+    {{ other_username }}
+</div>
+
+<div class="page-header flex-between">
+    <div>
+        <h1 style="font-size:1.25rem">{{ other_display_name|default:other_username }}</h1>
+        <div class="mono muted" style="font-size:0.75rem">conversation with {{ other_username }}</div>
+    </div>
+    <div class="mono muted" style="font-size:0.7rem">{{ messages|length }} message{{ messages|length|pluralize }}</div>
+</div>
+
+{% if messages %}
+<div class="message-list" id="message-list">
+    {% for msg in messages %}
+    <div class="message {% if msg.sender.username == silicon.username %}sent{% else %}received{% endif %}">
+        <div class="message-bubble">
+            {% if msg.kind == 'text' %}
+            {{ msg.body }}
+            {% elif msg.attachment %}
+            {% if msg.kind == 'image' %}
+            <img src="{{ msg.attachment.url }}" alt="{{ msg.attachment_name }}" style="max-width:300px">
+            {% elif msg.kind == 'video' %}
+            <video controls style="max-width:300px"><source src="{{ msg.attachment.url }}"></video>
+            {% elif msg.kind == 'audio' %}
+            <audio controls><source src="{{ msg.attachment.url }}"></audio>
+            {% else %}
+            <div class="message-attachment">{{ msg.attachment_name }} ({{ msg.size_bytes|filesizeformat }})</div>
+            {% endif %}
+            {% if msg.body %}<div class="mt-1">{{ msg.body }}</div>{% endif %}
+            {% endif %}
+        </div>
+        <div class="message-meta">
+            {{ msg.sender.username }} &middot; {{ msg.created_at|timesince }} ago
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<script>
+var el = document.getElementById('message-list');
+el.scrollTop = el.scrollHeight;
+</script>
+{% else %}
+<div class="empty-state">
+    <div class="icon">&#x1F4AC;</div>
+    <div>No messages yet.</div>
+</div>
+{% endif %}
+{% endblock %}

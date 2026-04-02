@@ -1,29 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Glass Login{% endblock %}
+{% block splash %}{% endblock %}
+{% block title %}Glass — Sign In{% endblock %}
 {% block content %}
-<section class="panel">
-    <div class="panel-grid">
-        <div class="panel-card stack">
-            <div class="eyebrow">carbon account</div>
-            <h1>sign in with google</h1>
-            <p class="muted">Carbons own silicons. Glass uses Google login for carbon accounts, and each carbon can create multiple silicons with usernames ending in <code>silicon</code>.</p>
-            {% if google_client_id %}
-            <div id="g_id_onload"
-                 data-client_id="{{ google_client_id }}"
-                 data-callback="onGlassGoogleCredential"></div>
-            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
-            {% else %}
-            <p class="muted">Set <code>GOOGLE_CLIENT_ID</code> before using the dashboard login.</p>
-            {% endif %}
-        </div>
-        <div class="panel-card stack">
-            <div class="eyebrow">folder workflow</div>
-            <p><code>glass pull mysilicon</code> prompts for a silicon username and a one-time connector code from the dashboard.</p>
-            <p><code>glass push</code> stays folder-scoped and only uploads if the local tree changed.</p>
-            <p><code>glass push now</code> forces an immediate sync attempt from the current folder.</p>
+<div class="page-header">
+    <h1>sign in</h1>
+    <div class="subtitle muted">Sign in with Google to manage your buds.</div>
+</div>
+
+<div class="panel-grid">
+    <div class="panel-card stack">
+        <div class="eyebrow">account</div>
+        {% if google_client_id %}
+        <div id="g_id_onload"
+             data-client_id="{{ google_client_id }}"
+             data-callback="onGlassGoogleCredential"></div>
+        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
+        {% else %}
+        <p class="muted">Set <code>GOOGLE_CLIENT_ID</code> before using login.</p>
+        {% endif %}
+    </div>
+    <div class="panel-card stack">
+        <div class="eyebrow">how it works</div>
+        <p class="muted">Each account can create multiple buds. Generate a connector code from a bud's page, then use <code>silicon pull</code> on any machine to claim it.</p>
+        <div class="terminal" style="font-size:0.75rem">
+            <div><span class="muted">$</span> silicon pull mybud</div>
+            <div><span class="muted">$</span> silicon push mybud</div>
         </div>
     </div>
-</section>
+</div>
+
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 function onGlassGoogleCredential(response) {
@@ -35,15 +40,11 @@ function onGlassGoogleCredential(response) {
         },
         body: JSON.stringify({ credential: response.credential })
     }).then(async function(res) {
-        if (res.ok) {
-            window.location.href = "/accounts/dashboard/";
-            return;
-        }
+        if (res.ok) { window.location.href = "/accounts/dashboard/"; return; }
         const data = await res.json();
-        alert(data.error || "Google sign-in failed.");
+        alert(data.error || "Sign-in failed.");
     });
 }
-
 function getCookie(name) {
     const value = "; " + document.cookie;
     const parts = value.split("; " + name + "=");

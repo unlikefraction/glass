@@ -1,60 +1,172 @@
 {% extends "base.html" %}
-{% block title %}{{ silicon.username }} - Glass{% endblock %}
+{% block splash %}{% endblock %}
+{% block title %}{{ silicon.display_name|default:silicon.username }} — Glass{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}
 {% block content %}
-<section class="panel stack">
-    <div class="panel-grid">
-        <div class="panel-card stack">
-            <div class="eyebrow">silicon</div>
-            <h1>{{ silicon.username }}</h1>
-            <div class="muted">API key: <code>{{ silicon.api_key }}</code></div>
-            <form method="post" action="/sync/silicons/{{ silicon.username }}/connector/" class="stack">
-                {% csrf_token %}
-                <button type="submit">generate new connector</button>
-                <div class="muted">Generating a new connector invalidates all old connectors and active push bindings.</div>
-            </form>
-        </div>
-        <div class="panel-card stack">
-            <div class="eyebrow">latest connector</div>
-            {% with connectors.0 as latest %}
-            {% if latest %}
-            <div style="font-size:3rem;font-weight:800">{{ latest.code }}</div>
-            <div class="muted">active: {{ latest.is_active }} | used: {{ latest.used_at|default:"not yet" }}</div>
-            {% else %}
-            <div class="muted">No connector generated yet.</div>
-            {% endif %}
-            {% endwith %}
-        </div>
-    </div>
+<div class="breadcrumb">
+    <a href="/accounts/dashboard/">buds</a>
+    <span>/</span>
+    {{ silicon.username }}
+</div>
 
-    <div class="panel-grid">
-        <div class="list-card">
-            <div class="eyebrow">source bindings</div>
-            {% for binding in bindings %}
-            <div class="list-row">
-                <div>
-                    <strong>{{ binding.folder_label }}</strong>
-                    <div class="muted">{{ binding.folder_fingerprint }}</div>
-                </div>
-                <div class="mono">{{ binding.is_active|yesno:"active,inactive" }}</div>
-            </div>
-            {% empty %}
-            <div class="muted">No folder has claimed this silicon yet.</div>
-            {% endfor %}
-        </div>
-        <div class="list-card">
-            <div class="eyebrow">snapshots</div>
-            {% for snapshot in snapshots %}
-            <div class="list-row">
-                <div>
-                    <strong>{{ snapshot.tree_hash|slice:":12" }}</strong>
-                    <div class="muted">{{ snapshot.created_at }}</div>
-                </div>
-                <div class="mono">{{ snapshot.archive_size }} bytes</div>
-            </div>
-            {% empty %}
-            <div class="muted">No snapshots yet.</div>
-            {% endfor %}
-        </div>
+<div class="page-header flex-between">
+    <div>
+        <h1>{{ silicon.display_name|default:silicon.username }}</h1>
+        <div class="mono muted mt-1" style="font-size:0.75rem">{{ silicon.username }}</div>
     </div>
-</section>
+    <div class="flex gap-sm">
+        {% if latest_snapshot %}
+        <a href="/sync/silicons/{{ silicon.username }}/download/{% if selected_snapshot %}?snapshot={{ selected_snapshot.id }}{% endif %}" class="btn">download</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+    <a href="/sync/silicons/{{ silicon.username }}/" class="tab {% if active_tab == 'code' %}active{% endif %}">code</a>
+    <a href="/sync/silicons/{{ silicon.username }}/messages/" class="tab {% if active_tab == 'messages' %}active{% endif %}">messages</a>
+    <a href="/sync/silicons/{{ silicon.username }}/settings/" class="tab {% if active_tab == 'settings' %}active{% endif %}">settings</a>
+</div>
+
+{% if active_tab == 'code' %}
+<!-- Version selector -->
+{% if snapshots %}
+<div class="flex-between mb-2">
+    <div class="flex gap-sm" style="align-items:center">
+        <div class="version-selector">
+            <select onchange="window.location.href='/sync/silicons/{{ silicon.username }}/?snapshot='+this.value">
+                {% for snap in snapshots %}
+                <option value="{{ snap.id }}" {% if selected_snapshot and selected_snapshot.id == snap.id %}selected{% endif %}>
+                    {{ snap.tree_hash|slice:":8" }} &mdash; {{ snap.created_at|timesince }} ago ({{ snap.archive_size|filesizeformat }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <span class="mono muted" style="font-size:0.7rem">{{ snapshots|length }} version{{ snapshots|length|pluralize }}</span>
+    </div>
+</div>
+{% endif %}
+
+<!-- File browser -->
+{% if file_tree %}
+<div class="file-browser">
+    <div class="file-browser-header">
+        <div class="mono" style="font-size:0.8rem">
+            {% if current_path %}
+            <a href="/sync/silicons/{{ silicon.username }}/?snapshot={{ selected_snapshot.id }}">root</a>
+            {% for part in breadcrumb_parts %}
+            <span style="opacity:0.4"> / </span>
+            <a href="/sync/silicons/{{ silicon.username }}/?snapshot={{ selected_snapshot.id }}&path={{ part.path }}">{{ part.name }}</a>
+            {% endfor %}
+            {% else %}
+            root
+            {% endif %}
+        </div>
+        <div class="mono muted" style="font-size:0.7rem">{{ file_count }} file{{ file_count|pluralize }}</div>
+    </div>
+    {% if current_path and parent_path is not None %}
+    <a href="/sync/silicons/{{ silicon.username }}/?snapshot={{ selected_snapshot.id }}&path={{ parent_path }}" class="file-row">
+        <span class="file-icon">..</span>
+        <span class="file-name muted">(parent directory)</span>
+        <span class="file-size"></span>
+    </a>
+    {% endif %}
+    {% for item in file_tree %}
+    {% if item.is_dir %}
+    <a href="/sync/silicons/{{ silicon.username }}/?snapshot={{ selected_snapshot.id }}&path={{ item.path }}" class="file-row">
+        <span class="file-icon">&#x1F4C1;</span>
+        <span class="file-name">{{ item.name }}</span>
+        <span class="file-size muted">{{ item.count }} item{{ item.count|pluralize }}</span>
+    </a>
+    {% else %}
+    <a href="/sync/silicons/{{ silicon.username }}/file/?snapshot={{ selected_snapshot.id }}&path={{ item.path }}" class="file-row">
+        <span class="file-icon">&#x1F4C4;</span>
+        <span class="file-name">{{ item.name }}</span>
+        <span class="file-size">{{ item.size|filesizeformat }}</span>
+    </a>
+    {% endif %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="icon">&#x1F4E6;</div>
+    <div>No snapshots yet.</div>
+    <div class="muted mt-1">Push code with <code>silicon push {{ silicon.username }}</code></div>
+</div>
+{% endif %}
+
+{% elif active_tab == 'messages' %}
+<!-- Message threads -->
+{% if threads %}
+<div class="thread-list">
+    {% for thread in threads %}
+    <a href="/sync/silicons/{{ silicon.username }}/messages/{{ thread.other_username }}/" class="thread-row">
+        <div>
+            <div class="thread-name">{{ thread.other_display_name|default:thread.other_username }}</div>
+            {% if thread.last_message %}
+            <div class="thread-preview">{{ thread.last_message.body|truncatechars:80 }}</div>
+            {% endif %}
+        </div>
+        <div class="thread-time">{{ thread.updated_at|timesince }} ago</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="icon">&#x1F4AC;</div>
+    <div>No conversations yet.</div>
+    <div class="muted mt-1">Messages between buds will appear here.</div>
+</div>
+{% endif %}
+
+{% elif active_tab == 'settings' %}
+<!-- Settings -->
+<div class="panel-grid">
+    <div class="panel-card stack">
+        <div class="eyebrow">api key</div>
+        <code style="word-break:break-all;font-size:0.8rem">{{ silicon.api_key }}</code>
+        <div class="muted" style="font-size:0.8rem">Used for silicon-to-silicon messaging and authentication.</div>
+    </div>
+    <div class="panel-card stack">
+        <div class="eyebrow">connector</div>
+        {% with connectors.0 as latest %}
+        {% if latest and latest.is_active %}
+        <div class="connector-display">{{ latest.code }}</div>
+        <div class="muted" style="font-size:0.8rem">
+            {% if latest.used_at %}Used by {{ latest.consumed_by_label }}{% else %}Active — waiting to be claimed{% endif %}
+        </div>
+        {% else %}
+        <div class="muted">No active connector.</div>
+        {% endif %}
+        {% endwith %}
+        <form method="post" action="/sync/silicons/{{ silicon.username }}/connector/">
+            {% csrf_token %}
+            <button type="submit">generate new connector</button>
+        </form>
+        <div class="muted" style="font-size:0.75rem">Generating a new connector invalidates all old connectors and active push bindings.</div>
+    </div>
+</div>
+
+{% if bindings %}
+<div class="list-section mt-3">
+    <div class="list-header">
+        <div class="eyebrow">source bindings</div>
+    </div>
+    {% for binding in bindings %}
+    <div class="list-row">
+        <div>
+            <div style="font-weight:500">{{ binding.folder_label }}</div>
+            <div class="mono muted" style="font-size:0.7rem">{{ binding.folder_fingerprint|slice:":16" }}...</div>
+        </div>
+        <span class="tag {% if binding.is_active %}active{% else %}inactive{% endif %}">
+            {{ binding.is_active|yesno:"active,inactive" }}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
 {% endblock %}

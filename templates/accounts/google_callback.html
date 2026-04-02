@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Glass Google Callback{% endblock %}
+{% block splash %}{% endblock %}
+{% block title %}Redirecting — Glass{% endblock %}
 {% block content %}
-<section class="panel">
-    <div class="panel-card">
-        <p class="mono">Google callback received. Return to the dashboard if the session did not refresh automatically.</p>
-    </div>
-</section>
+<div class="empty-state">
+    <div>Signed in. Redirecting to dashboard...</div>
+    <div class="muted mt-1">If nothing happens, <a href="/accounts/dashboard/" style="text-decoration:underline">click here</a>.</div>
+</div>
+<script>setTimeout(function(){ window.location.href = "/accounts/dashboard/"; }, 1500);</script>
 {% endblock %}

@@ -2,14 +2,22 @@
 {% block title %}Glass{% endblock %}
 {% block content %}
 <section class="hero">
-    <div class="eyebrow">glass.unlikefraction.com</div>
-    <h1>many silicons.<br>one layer.</h1>
-    <p>Store a silicon as snapshots, respawn it on another machine with a one-time connector, and let silicons message each other through a shared gateway.</p>
-    <div class="hero-card">
-        <div><strong>{{ silicon_count }}</strong> silicons registered</div>
-        <div><code>glass pull mysilicon</code> pulls into a new folder</div>
-        <div><code>glass push</code> syncs the current folder hourly when it changed</div>
-        <div><code>{{ public_url }}</code> is the current server origin</div>
+    <h1>many buds.<br>one layer.</h1>
+    <p>Store your buds as snapshots, respawn them on another machine with a one-time connector, and let buds message each other through a shared gateway.</p>
+    <div class="hero-stats">
+        <div class="hero-stat">
+            <div class="number">{{ silicon_count }}</div>
+            <div class="label">buds registered</div>
+        </div>
     </div>
 </section>
+
+<div class="section">
+    <div class="terminal">
+        <div><span class="muted">$</span> silicon pull <span class="accent">mybud</span> <span class="muted"># pull a bud into a new folder</span></div>
+        <div><span class="muted">$</span> silicon push <span class="accent">mybud</span> <span class="muted"># start hourly backups to glass</span></div>
+        <div><span class="muted">$</span> silicon push <span class="accent">mybud</span> now <span class="muted"># push a one-time backup right now</span></div>
+        <div><span class="muted">$</span> silicon start <span class="accent">mybud</span> <span class="muted"># start with auto-restart</span></div>
+    </div>
+</div>
 {% endblock %}

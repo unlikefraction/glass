@@ -1,65 +1,82 @@
 {% extends "base.html" %}
 {% load account_tags %}
-{% block title %}Glass Dashboard{% endblock %}
+{% block splash %}{% endblock %}
+{% block title %}Buds — Glass{% endblock %}
 {% block content %}
-<section class="panel stack">
-    <div class="panel-grid">
-        <div class="panel-card stack">
-            <div class="eyebrow">carbon</div>
-            <h1>{{ carbon.username }}</h1>
-            <div class="muted">{{ carbon.email }}</div>
-            <div class="muted">Create silicons here, then generate a one-time connector whenever you want a new machine or folder to claim push access.</div>
-        </div>
-        <div class="panel-card stack">
-            <div class="eyebrow">new silicon</div>
-            <form id="silicon-create-form" class="stack">
-                {% csrf_token %}
-                <input type="text" name="username" placeholder="examplesilicon" required>
-                <input type="text" name="display_name" placeholder="Optional display name">
-                <button type="submit">create silicon</button>
-            </form>
-            <div id="silicon-create-result" class="mono muted"></div>
-        </div>
+<div class="page-header flex-between">
+    <div>
+        <h1>your buds</h1>
+        <div class="subtitle muted">{{ carbon.username }} &middot; {{ carbon.email }}</div>
     </div>
+</div>
 
-    <div class="list-card">
-        <div class="eyebrow">silicons</div>
-        {% for silicon in silicons %}
-        <div class="list-row">
+<div class="panel-grid mb-2">
+    <div class="panel-card stack">
+        <div class="eyebrow">new bud</div>
+        <form id="bud-create-form" class="stack">
+            {% csrf_token %}
+            <input type="text" name="username" placeholder="mybudsilicon" required>
+            <input type="text" name="display_name" placeholder="Display name (optional)">
+            <button type="submit">create bud</button>
+        </form>
+        <div id="bud-create-result" class="mono muted"></div>
+    </div>
+</div>
+
+<div class="list-section">
+    <div class="list-header">
+        <div class="eyebrow">all buds</div>
+        <div class="mono muted" style="font-size:0.7rem">{{ silicons|length }} total</div>
+    </div>
+    {% for silicon in silicons %}
+    <div class="list-row" style="padding:0">
+        <a href="/sync/silicons/{{ silicon.username }}/">
             <div>
-                <div><a href="/sync/silicons/{{ silicon.username }}/"><strong>{{ silicon.username }}</strong></a></div>
-                <div class="muted">{{ silicon.display_name|default:"No display name" }}</div>
+                <div style="font-weight:600">{{ silicon.display_name|default:silicon.username }}</div>
+                <div class="mono muted" style="font-size:0.75rem">{{ silicon.username }}</div>
             </div>
-            <div class="mono">
+            <div class="flex gap-sm" style="align-items:center">
                 {% with latest_codes|get_item:silicon.id as code %}
-                {% if code %}active connector: {{ code.code }}{% else %}no active connector{% endif %}
+                {% if code %}
+                <span class="tag active">connector: {{ code.code }}</span>
+                {% else %}
+                <span class="tag">no connector</span>
+                {% endif %}
                 {% endwith %}
             </div>
-        </div>
-        {% empty %}
-        <div class="muted">No silicons yet.</div>
-        {% endfor %}
+        </a>
     </div>
-</section>
+    {% empty %}
+    <div class="empty-state">
+        <div class="icon">&#x2618;</div>
+        <div>No buds yet. Create your first one above.</div>
+    </div>
+    {% endfor %}
+</div>
+
 <script>
-document.getElementById("silicon-create-form").addEventListener("submit", async function(event) {
-    event.preventDefault();
-    const form = event.target;
-    const body = {
-        username: form.username.value,
-        display_name: form.display_name.value
-    };
+document.getElementById("bud-create-form").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const form = e.target;
     const res = await fetch("/accounts/api/silicons/create/", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+            username: form.username.value,
+            display_name: form.display_name.value
+        })
     });
     const data = await res.json();
-    document.getElementById("silicon-create-result").textContent = data.error || ("api key: " + data.api_key);
-    if (res.ok) window.location.reload();
+    const result = document.getElementById("bud-create-result");
+    if (res.ok) {
+        result.innerHTML = 'created! api key: <code>' + data.api_key + '</code>';
+        setTimeout(() => window.location.reload(), 2000);
+    } else {
+        result.textContent = data.error || "Failed to create bud.";
+    }
 });
 </script>
 {% endblock %}

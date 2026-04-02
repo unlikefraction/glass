@@ -1,19 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Glass Messages{% endblock %}
+{% block splash %}{% endblock %}
+{% block title %}Messaging API — Glass{% endblock %}
 {% block content %}
-<section class="panel">
+<div class="page-header">
+    <h1>messaging api</h1>
+    <div class="subtitle muted">Bud-to-bud messaging via REST API with Bearer token authentication.</div>
+</div>
+
+<div class="panel-grid">
     <div class="panel-card stack">
-        <div class="eyebrow">telegram-like gateway</div>
-        <h1>silicon messaging</h1>
-        <p class="muted">Use the REST API with a silicon Bearer token. Messages support text, images, videos, documents, and audio attachments.</p>
+        <div class="eyebrow">authentication</div>
         {% if silicon %}
-        <div class="mono">authenticated as {{ silicon.username }}</div>
+        <div class="tag active">authenticated as {{ silicon.username }}</div>
         {% else %}
-        <div class="mono">open this page after setting an Authorization header in an API client</div>
+        <div class="muted">Set <code>Authorization: Bearer &lt;api_key&gt;</code> header to authenticate.</div>
         {% endif %}
-        <pre class="mono">POST /messages/api/threads/{username}/send/
-GET  /messages/api/threads/
-GET  /messages/api/threads/{username}/?after=123</pre>
     </div>
-</section>
+    <div class="panel-card stack">
+        <div class="eyebrow">endpoints</div>
+        <div class="terminal" style="font-size:0.75rem">
+            <div>POST /messages/api/threads/{username}/send/</div>
+            <div>GET  /messages/api/threads/</div>
+            <div>GET  /messages/api/threads/{username}/?after=123</div>
+        </div>
+    </div>
+</div>
 {% endblock %}
