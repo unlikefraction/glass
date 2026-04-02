@@ -6,6 +6,11 @@ from django.views import View
 from syncer.models import Silicon
 
 
+class DocsView(View):
+    def get(self, request):
+        return render(request, "docs.html")
+
+
 class HomeView(View):
     def get(self, request):
         carbon_id = request.session.get("carbon_id")

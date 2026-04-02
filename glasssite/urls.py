@@ -3,11 +3,12 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
-from core.views import HomeView
+from core.views import DocsView, HomeView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", HomeView.as_view(), name="home"),
+    path("docs/", DocsView.as_view(), name="docs"),
     path("accounts/", include("accounts.urls")),
     path("sync/", include("syncer.urls")),
     path("messages/", include("messaging.urls")),
