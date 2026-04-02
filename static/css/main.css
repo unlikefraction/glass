@@ -557,10 +557,38 @@ button.secondary:hover, .btn.secondary:hover {
     font-size: 0.8rem;
     line-height: 1.8;
     overflow-x: auto;
+    position: relative;
+}
+
+.terminal::selection,
+.terminal *::selection {
+    background: var(--accent);
+    color: var(--fg);
 }
 
 .terminal .accent { color: var(--accent); }
 .terminal .muted { color: #666; }
+
+.terminal .copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    width: auto;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.terminal:hover .copy-btn { opacity: 1; }
+.terminal .copy-btn:hover { border-color: var(--bg); color: var(--bg); opacity: 1; }
 
 /* ── Page Header ───────────────────────── */
 
