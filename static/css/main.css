@@ -23,6 +23,15 @@
 
 ::selection { background: var(--fg); color: var(--bg); }
 
+/* Invert selection on dark backgrounds so highlight is visible */
+.terminal::selection, .terminal *::selection,
+.message.sent .message-bubble::selection, .message.sent .message-bubble *::selection,
+.file-viewer-content .markdown-body pre::selection, .file-viewer-content .markdown-body pre *::selection,
+pre[style*="background"]::selection, pre[style*="background"] *::selection {
+    background: var(--accent);
+    color: var(--fg);
+}
+
 body {
     font-family: 'Inter', sans-serif;
     background: var(--bg);
@@ -558,12 +567,6 @@ button.secondary:hover, .btn.secondary:hover {
     line-height: 1.8;
     overflow-x: auto;
     position: relative;
-}
-
-.terminal::selection,
-.terminal *::selection {
-    background: var(--accent);
-    color: var(--fg);
 }
 
 .terminal .accent { color: var(--accent); }
