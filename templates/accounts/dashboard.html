@@ -43,8 +43,8 @@
         <p class="muted" style="font-size:0.85rem">The username is permanent and must end with <code>silicon</code>.</p>
         <form id="bud-create-form" class="stack">
             {% csrf_token %}
-            <input type="text" name="username" placeholder="mybudsilicon" required>
-            <input type="text" name="display_name" placeholder="Display name (optional)">
+            <input type="text" name="username" placeholder="mybudsilicon" required autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <input type="text" name="display_name" placeholder="Display name (optional)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             <button type="submit">create</button>
         </form>
         <div id="bud-create-result" class="mono muted" style="font-size:0.8rem"></div>
