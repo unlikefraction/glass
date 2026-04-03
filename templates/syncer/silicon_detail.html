@@ -146,13 +146,32 @@
 <div id="controls-section">
     <div class="panel-grid mb-2">
         <div class="panel-card stack">
-            <div class="eyebrow">commands</div>
+            <div class="eyebrow">bud</div>
             <div class="flex gap-sm">
                 <button onclick="sendCommand('start')" id="btn-start" class="secondary" style="flex:1" disabled>start</button>
                 <button onclick="sendCommand('stop')" id="btn-stop" class="secondary" style="flex:1" disabled>stop</button>
-                <button onclick="sendCommand('restart')" id="btn-restart" class="secondary" style="flex:1" disabled>restart</button>
             </div>
             <div id="command-result" class="mono muted" style="font-size:0.75rem"></div>
+        </div>
+        <div class="panel-card stack">
+            <div class="eyebrow">backup</div>
+            <div class="flex gap-sm">
+                <button onclick="sendCommand('backup_now')" id="btn-backup-now" class="secondary" style="flex:1" disabled>backup now</button>
+                <button onclick="toggleBackup()" id="btn-backup-toggle" class="secondary" style="flex:1" disabled>continuous: —</button>
+            </div>
+            <div id="backup-result" class="mono muted" style="font-size:0.75rem"></div>
+        </div>
+    </div>
+    <div class="panel-grid mb-2">
+        <div class="panel-card stack">
+            <div class="eyebrow">update</div>
+            <div class="flex gap-sm" style="align-items:center">
+                <span id="version-info" class="mono muted" style="font-size:0.75rem"></span>
+            </div>
+            <div class="flex gap-sm" style="align-items:center">
+                <button onclick="sendUpdate()" id="btn-update" class="secondary" style="flex:1" disabled>update</button>
+            </div>
+            <div id="update-result" class="mono muted" style="font-size:0.75rem"></div>
         </div>
     </div>
 </div>
@@ -162,16 +181,36 @@
 </div>
 
 <!-- Log Viewer -->
-<div class="file-viewer">
+<div id="log-viewer" class="file-viewer">
     <div class="file-viewer-header">
         <div class="flex gap-sm" style="align-items:center">
             <span class="mono">debug logs</span>
             <span id="log-status" class="muted" style="font-size:0.7rem">streaming...</span>
         </div>
-        <button id="log-toggle" onclick="toggleLogStream()" class="secondary" style="padding:0.3rem 0.6rem;font-size:0.6rem;width:auto">pause</button>
+        <div class="flex gap-sm">
+            <button id="log-toggle" onclick="toggleLogStream()" class="secondary" style="padding:0.3rem 0.6rem;font-size:0.6rem;width:auto">unscroll</button>
+            <button id="log-fullscreen" onclick="toggleFullscreen()" class="secondary" style="padding:0.3rem 0.6rem;font-size:0.6rem;width:auto">fullscreen</button>
+        </div>
     </div>
     <pre id="log-output" style="height:400px;overflow-y:auto;padding:1rem 1.5rem;margin:0;font-size:0.75rem;line-height:1.6;background:var(--fg);color:var(--bg)"></pre>
 </div>
+<style>
+#log-viewer.log-fullscreen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+}
+#log-viewer.log-fullscreen .file-viewer-header {
+    flex-shrink: 0;
+}
+#log-viewer.log-fullscreen #log-output {
+    height: auto;
+    flex: 1;
+}
+</style>
 
 <!-- Command History -->
 <div class="list-section mt-3">
@@ -190,6 +229,11 @@ var logCursor = null;
 var statusInterval = null;
 var logInterval = null;
 var wsMode = false;
+var currentBudStatus = null;
+var backupRunning = false;
+var currentVersion = '';
+var latestVersion = '';
+var pendingCommand = null; // tracks what command we're waiting on
 
 function getCsrf() {
     var v = "; " + document.cookie;
@@ -215,10 +259,52 @@ function updateAgentStatus(connected, status, heartbeat) {
         agentText.textContent = "connected" + (wsMode ? " (live)" : "");
         controlsSection.style.display = '';
         controlsOffline.style.display = 'none';
-        btns.forEach(function(b) { b.disabled = false; });
         if (status) {
+            currentBudStatus = status;
             statusDot.style.background = status === "running" ? "#5a9a6b" : status === "crashed" ? "#b85c5c" : "#666";
             statusText.textContent = status;
+        }
+        // Resolve pending command based on actual bud status
+        if (pendingCommand && currentBudStatus) {
+            if (pendingCommand === 'start' && currentBudStatus === 'running') {
+                document.getElementById('command-result').textContent = 'started';
+                pendingCommand = null;
+            } else if (pendingCommand === 'stop' && currentBudStatus !== 'running') {
+                document.getElementById('command-result').textContent = 'stopped';
+                pendingCommand = null;
+            }
+        }
+        // Enable/disable buttons based on bud status
+        var btnStart = document.getElementById('btn-start');
+        var btnStop = document.getElementById('btn-stop');
+        if (currentBudStatus === "running") {
+            btnStart.disabled = true;
+            btnStop.disabled = false;
+        } else {
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+        }
+        // Backup buttons
+        document.getElementById('btn-backup-now').disabled = false;
+        document.getElementById('btn-backup-toggle').disabled = false;
+        document.getElementById('btn-backup-toggle').textContent = backupRunning ? 'continuous: on' : 'continuous: off';
+        // Version + update button
+        var btnUpdate = document.getElementById('btn-update');
+        var versionEl = document.getElementById('version-info');
+        var updateResult = document.getElementById('update-result');
+        var hasUpdate = latestVersion && currentVersion && latestVersion !== currentVersion;
+        if (currentVersion) {
+            versionEl.textContent = 'v' + currentVersion + (hasUpdate ? ' → v' + latestVersion + ' available' : ' (latest)');
+        }
+        if (currentBudStatus === "running") {
+            btnUpdate.disabled = true;
+            if (hasUpdate) updateResult.textContent = 'stop the bud first to update';
+        } else if (hasUpdate) {
+            btnUpdate.disabled = false;
+            if (updateResult.textContent === 'stop the bud first to update') updateResult.textContent = '';
+        } else {
+            btnUpdate.disabled = true;
+            if (updateResult.textContent === 'stop the bud first to update') updateResult.textContent = '';
         }
     } else if (heartbeat) {
         agentDot.style.background = "#c9b99a";
@@ -291,18 +377,26 @@ function connectWebSocket() {
         if (msg.type === 'agent_status') {
             updateAgentStatus(msg.connected, null, msg.connected ? new Date().toISOString() : null);
         } else if (msg.type === 'heartbeat') {
+            if (msg.backup_running !== undefined) backupRunning = msg.backup_running;
+            if (msg.current_version) currentVersion = msg.current_version;
+            if (msg.latest_version) latestVersion = msg.latest_version;
             updateAgentStatus(true, msg.status, new Date().toISOString());
         } else if (msg.type === 'log') {
             appendLogs(msg.lines);
         } else if (msg.type === 'command_ack') {
-            document.getElementById('command-result').textContent = 'executing...';
+            var ackEl = msg.command ? getResultEl(msg.command) : document.getElementById('command-result');
+            ackEl.textContent = 'executing...';
         } else if (msg.type === 'command_result') {
-            document.getElementById('command-result').textContent = msg.status + ': ' + (msg.message || '');
-            recentWsCommands.unshift({command: msg.command || '?', status: msg.status, message: msg.message, created_at: new Date().toISOString()});
+            var cmdName = msg.command || '?';
+            var resultEl = getResultEl(cmdName);
+            // For start/stop, let bud status drive the message
+            if (!(pendingCommand === 'start' || pendingCommand === 'stop')) {
+                resultEl.textContent = msg.status + ': ' + (msg.message || '');
+            }
+            recentWsCommands.unshift({command: cmdName, status: msg.status, message: msg.message, created_at: new Date().toISOString()});
             if (recentWsCommands.length > 10) recentWsCommands.pop();
             updateCommandHistory(recentWsCommands);
-            var btns = document.querySelectorAll('[id^="btn-"]');
-            btns.forEach(function(b) { b.disabled = false; });
+            fetchStatus();
         }
     };
 
@@ -319,10 +413,18 @@ function connectWebSocket() {
 
 // ── Commands ────────────────────────────────────────────
 
+function getResultEl(cmd) {
+    if (cmd === 'backup_now' || cmd === 'backup_on' || cmd === 'backup_off') return document.getElementById('backup-result');
+    if (cmd === 'update') return document.getElementById('update-result');
+    return document.getElementById('command-result');
+}
+
 function sendCommand(cmd) {
     var btns = document.querySelectorAll('[id^="btn-"]');
     btns.forEach(function(b) { b.disabled = true; });
-    document.getElementById('command-result').textContent = 'sending ' + cmd + '...';
+    if (cmd === 'start' || cmd === 'stop') pendingCommand = cmd;
+    var resultEl = getResultEl(cmd);
+    resultEl.textContent = 'sending ' + cmd.replace('_', ' ') + '...';
 
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({type: 'command', command: cmd}));
@@ -335,13 +437,30 @@ function sendCommand(cmd) {
         headers: {"Content-Type": "application/json", "X-CSRFToken": getCsrf()},
         body: JSON.stringify({command: cmd})
     }).then(function(r) { return r.json(); }).then(function(data) {
-        document.getElementById('command-result').textContent = data.error || (cmd + ' sent.');
-        setTimeout(function() { btns.forEach(function(b) { b.disabled = false; }); }, 3000);
-        fetchStatus();
+        resultEl.textContent = data.error || (cmd.replace('_', ' ') + ' sent.');
+        setTimeout(fetchStatus, 3000);
     }).catch(function() {
-        document.getElementById('command-result').textContent = 'failed to send.';
-        btns.forEach(function(b) { b.disabled = false; });
+        resultEl.textContent = 'failed to send.';
+        fetchStatus();
     });
+}
+
+function toggleBackup() {
+    if (backupRunning) {
+        if (confirm('Continuous backup is running. Turn it off?')) {
+            sendCommand('backup_off');
+        }
+    } else {
+        sendCommand('backup_on');
+    }
+}
+
+function sendUpdate() {
+    if (currentBudStatus === 'running') {
+        document.getElementById('update-result').textContent = 'stop the bud first to update';
+        return;
+    }
+    sendCommand('update');
 }
 
 // ── REST polling fallback ───────────────────────────────
@@ -350,6 +469,9 @@ function fetchStatus() {
     fetch("/control/api/silicons/" + username + "/status/", {
         headers: {"X-CSRFToken": getCsrf()}
     }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.backup_running !== undefined) backupRunning = data.backup_running;
+        if (data.current_version) currentVersion = data.current_version;
+        if (data.latest_version) latestVersion = data.latest_version;
         updateAgentStatus(data.agent_connected, data.reported_status, data.last_heartbeat);
         if (data.recent_commands) updateCommandHistory(data.recent_commands);
     });
@@ -383,9 +505,27 @@ function stopPolling() {
 
 function toggleLogStream() {
     logStreaming = !logStreaming;
-    document.getElementById('log-toggle').textContent = logStreaming ? 'pause' : 'resume';
+    document.getElementById('log-toggle').textContent = logStreaming ? 'unscroll' : 'continue';
     document.getElementById('log-status').textContent = logStreaming ? (wsMode ? 'live' : 'streaming...') : 'paused';
 }
+
+function toggleFullscreen() {
+    var viewer = document.getElementById('log-viewer');
+    var btn = document.getElementById('log-fullscreen');
+    viewer.classList.toggle('log-fullscreen');
+    btn.textContent = viewer.classList.contains('log-fullscreen') ? 'exit' : 'fullscreen';
+    var el = document.getElementById('log-output');
+    el.scrollTop = el.scrollHeight;
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        var viewer = document.getElementById('log-viewer');
+        if (viewer && viewer.classList.contains('log-fullscreen')) {
+            toggleFullscreen();
+        }
+    }
+});
 
 // ── Boot ────────────────────────────────────────────────
 

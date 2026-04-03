@@ -88,13 +88,17 @@ def _auth_browser_sync(session_key, username):
         return False
 
 
-def _update_heartbeat_sync(username, status):
+def _update_heartbeat_sync(username, status, backup_running=None, current_version=None, latest_version=None):
     """Update Silicon heartbeat in DB for REST API compatibility."""
     try:
-        Silicon.objects.filter(username=username).update(
-            last_heartbeat=timezone.now(),
-            reported_status=status,
-        )
+        updates = dict(last_heartbeat=timezone.now(), reported_status=status)
+        if backup_running is not None:
+            updates["backup_running"] = backup_running
+        if current_version:
+            updates["current_version"] = current_version
+        if latest_version:
+            updates["latest_version"] = latest_version
+        Silicon.objects.filter(username=username).update(**updates)
     except Exception:
         pass
 
@@ -155,7 +159,10 @@ async def handle_agent(ws):
                 now = asyncio.get_event_loop().time()
                 if now - last_db_update > HEARTBEAT_DB_INTERVAL:
                     status = msg.get("status", "")
-                    await asyncio.to_thread(_update_heartbeat_sync, silicon_username, status)
+                    backup = msg.get("backup_running")
+                    cur_ver = msg.get("current_version")
+                    lat_ver = msg.get("latest_version")
+                    await asyncio.to_thread(_update_heartbeat_sync, silicon_username, status, backup, cur_ver, lat_ver)
                     last_db_update = now
 
             elif msg_type in ("log", "command_ack", "command_result"):
@@ -221,7 +228,7 @@ async def handle_browser(ws, username):
 
             if msg.get("type") == "command":
                 cmd = msg.get("command", "")
-                if cmd in ("start", "stop", "restart"):
+                if cmd:
                     # Add ID and relay to agent
                     msg["id"] = str(uuid.uuid4())[:8]
                     sent = await send_to_agent(username, json.dumps(msg))
