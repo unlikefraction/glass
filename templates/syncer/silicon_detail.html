@@ -16,7 +16,12 @@
         <h1>{{ silicon.display_name|default:silicon.username }}</h1>
         <div class="mono muted mt-1" style="font-size:0.75rem">{{ silicon.username }}</div>
     </div>
-    <div class="flex gap-sm">
+    <div class="flex gap-sm" style="align-items:center">
+        <div id="version-box" style="display:none;align-items:center;gap:0.5rem;padding:0.4rem 0.75rem;border:1px solid var(--border);border-radius:6px;font-size:0.75rem">
+            <span id="version-info" class="mono"></span>
+            <button onclick="sendUpdate()" id="btn-update" class="secondary" style="padding:0.25rem 0.6rem;font-size:0.7rem;width:auto;display:none">update</button>
+        </div>
+        <div id="update-result" class="mono muted" style="font-size:0.7rem"></div>
         {% if latest_snapshot %}
         <a href="/sync/silicons/{{ silicon.username }}/download/{% if selected_snapshot %}?snapshot={{ selected_snapshot.id }}{% endif %}" class="btn">download</a>
         {% endif %}
@@ -162,18 +167,6 @@
             <div id="backup-result" class="mono muted" style="font-size:0.75rem"></div>
         </div>
     </div>
-    <div class="panel-grid mb-2">
-        <div class="panel-card stack">
-            <div class="eyebrow">update</div>
-            <div class="flex gap-sm" style="align-items:center">
-                <span id="version-info" class="mono muted" style="font-size:0.75rem"></span>
-            </div>
-            <div class="flex gap-sm" style="align-items:center">
-                <button onclick="sendUpdate()" id="btn-update" class="secondary" style="flex:1" disabled>update</button>
-            </div>
-            <div id="update-result" class="mono muted" style="font-size:0.75rem"></div>
-        </div>
-    </div>
 </div>
 <div id="controls-offline" class="empty-state mb-2" style="display:none;padding:1.5rem">
     <div class="muted">Controls unavailable — glass agent is not connected.</div>
@@ -288,23 +281,30 @@ function updateAgentStatus(connected, status, heartbeat) {
         document.getElementById('btn-backup-now').disabled = false;
         document.getElementById('btn-backup-toggle').disabled = false;
         document.getElementById('btn-backup-toggle').textContent = backupRunning ? 'continuous: on' : 'continuous: off';
-        // Version + update button
+        // Version box in header
+        var versionBox = document.getElementById('version-box');
         var btnUpdate = document.getElementById('btn-update');
         var versionEl = document.getElementById('version-info');
         var updateResult = document.getElementById('update-result');
-        var hasUpdate = latestVersion && currentVersion && latestVersion !== currentVersion;
-        if (currentVersion) {
-            versionEl.textContent = 'v' + currentVersion + (hasUpdate ? ' → v' + latestVersion + ' available' : ' (latest)');
-        }
-        if (currentBudStatus === "running") {
-            btnUpdate.disabled = true;
-            if (hasUpdate) updateResult.textContent = 'stop the bud first to update';
-        } else if (hasUpdate) {
-            btnUpdate.disabled = false;
-            if (updateResult.textContent === 'stop the bud first to update') updateResult.textContent = '';
-        } else {
-            btnUpdate.disabled = true;
-            if (updateResult.textContent === 'stop the bud first to update') updateResult.textContent = '';
+        if (versionBox && currentVersion) {
+            versionBox.style.display = 'flex';
+            var hasUpdate = latestVersion && currentVersion && latestVersion !== currentVersion;
+            if (hasUpdate) {
+                versionEl.textContent = 'v' + currentVersion + ' → v' + latestVersion;
+                btnUpdate.style.display = '';
+                if (currentBudStatus === 'running') {
+                    btnUpdate.disabled = true;
+                    updateResult.textContent = 'stop bud first';
+                } else {
+                    btnUpdate.disabled = false;
+                    if (updateResult.textContent === 'stop bud first') updateResult.textContent = '';
+                }
+            } else {
+                versionEl.textContent = 'v' + currentVersion;
+                versionEl.style.color = 'var(--muted)';
+                btnUpdate.style.display = 'none';
+                updateResult.textContent = '';
+            }
         }
     } else if (heartbeat) {
         agentDot.style.background = "#c9b99a";
@@ -457,7 +457,7 @@ function toggleBackup() {
 
 function sendUpdate() {
     if (currentBudStatus === 'running') {
-        document.getElementById('update-result').textContent = 'stop the bud first to update';
+        document.getElementById('update-result').textContent = 'stop bud first';
         return;
     }
     sendCommand('update');
