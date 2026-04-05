@@ -1,4 +1,5 @@
 from django.db import models
+from django.http import FileResponse, Http404
 from django.shortcuts import render
 from django.views import View
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -20,6 +21,9 @@ def _thread_for(sender, recipient):
 
 
 def _message_dict(message):
+    attachment_url = ""
+    if message.attachment:
+        attachment_url = f"/messages/api/messages/{message.id}/attachment/"
     return {
         "id": message.id,
         "thread_id": message.thread_id,
@@ -28,6 +32,7 @@ def _message_dict(message):
         "kind": message.kind,
         "body": message.body,
         "attachment_name": message.attachment_name,
+        "attachment_url": attachment_url,
         "content_type": message.content_type,
         "size_bytes": message.size_bytes,
         "reply_to": message.reply_to_id,
@@ -136,4 +141,26 @@ class SendMessageApiView(APIView):
                 "content_type": "Attachment content type",
             },
             status=201,
+        )
+
+
+class MessageAttachmentDownloadView(APIView):
+    def get(self, request, message_id):
+        silicon = getattr(request, "silicon", None)
+        if not silicon:
+            return error_response("Bearer silicon API key required.", status=401)
+        try:
+            message = SiliconMessage.objects.select_related("sender", "recipient").get(id=message_id)
+        except SiliconMessage.DoesNotExist:
+            raise Http404
+        # Only thread participants can download
+        if silicon.id not in (message.sender_id, message.recipient_id):
+            return error_response("Not authorized to access this attachment.", status=403)
+        if not message.attachment:
+            raise Http404
+        return FileResponse(
+            message.attachment.open("rb"),
+            as_attachment=True,
+            filename=message.attachment_name or "attachment",
+            content_type=message.content_type or "application/octet-stream",
         )
