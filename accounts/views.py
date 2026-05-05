@@ -224,3 +224,18 @@ class SiliconCreateView(APIView):
             },
             status=201,
         )
+
+
+class SiliconDeleteView(APIView):
+    def post(self, request, username):
+        carbon = _require_carbon(request)
+        if not carbon:
+            return error_response("Not authenticated.", status=401)
+
+        try:
+            silicon = Silicon.objects.get(username=username, owner=carbon)
+        except Silicon.DoesNotExist:
+            return error_response("Bud not found.", status=404)
+
+        silicon.delete()
+        return api_response({"deleted": username})

@@ -580,6 +580,93 @@ connectWebSocket();
     {% endfor %}
 </div>
 {% endif %}
+
+<div class="list-section mt-3" style="border-color: var(--border)">
+    <div class="list-header">
+        <div class="eyebrow" style="color:#b85c5c">danger zone</div>
+    </div>
+    <div class="list-row flex-between" style="align-items:center">
+        <div>
+            <div style="font-weight:500">delete this bud</div>
+            <div class="muted" style="font-size:0.8rem">Permanently removes this bud, all its snapshots, bindings, and history. This cannot be undone.</div>
+        </div>
+        <button onclick="openDeleteModal()" class="secondary" style="color:#b85c5c;border-color:#b85c5c;white-space:nowrap;flex-shrink:0;margin-left:1.5rem">delete bud</button>
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:var(--bg);border:1px solid var(--border);padding:2rem;max-width:420px;width:90%;margin:auto">
+        <div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem">delete {{ silicon.username }}?</div>
+        <div class="muted" style="font-size:0.85rem;margin-bottom:1.25rem">This will permanently delete this bud along with all its snapshots, source bindings, connector codes, and command history. Type the bud username to confirm.</div>
+        <input id="delete-confirm-input" type="text" placeholder="{{ silicon.username }}" autocomplete="off" style="width:100%;margin-bottom:1rem;box-sizing:border-box">
+        <div id="delete-error" class="muted" style="font-size:0.8rem;color:#b85c5c;margin-bottom:0.75rem;display:none"></div>
+        <div class="flex gap-sm">
+            <button onclick="closeDeleteModal()" class="secondary" style="flex:1">cancel</button>
+            <button onclick="confirmDelete()" id="btn-delete-confirm" class="secondary" style="flex:1;color:#b85c5c;border-color:#b85c5c">delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openDeleteModal() {
+    document.getElementById('delete-modal').style.display = 'flex';
+    document.getElementById('delete-confirm-input').value = '';
+    document.getElementById('delete-error').style.display = 'none';
+    document.getElementById('delete-confirm-input').focus();
+}
+
+function closeDeleteModal() {
+    document.getElementById('delete-modal').style.display = 'none';
+}
+
+document.getElementById('delete-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+});
+
+document.getElementById('delete-confirm-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmDelete();
+    if (e.key === 'Escape') closeDeleteModal();
+});
+
+function confirmDelete() {
+    var input = document.getElementById('delete-confirm-input').value.trim();
+    var errorEl = document.getElementById('delete-error');
+    if (input !== '{{ silicon.username }}') {
+        errorEl.textContent = 'Username does not match.';
+        errorEl.style.display = '';
+        return;
+    }
+    var btn = document.getElementById('btn-delete-confirm');
+    btn.disabled = true;
+    btn.textContent = 'deleting...';
+    errorEl.style.display = 'none';
+
+    fetch('/accounts/api/silicons/{{ silicon.username }}/delete/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': (function() {
+            var v = '; ' + document.cookie;
+            var p = v.split('; csrftoken=');
+            if (p.length === 2) return p.pop().split(';').shift();
+            return '';
+        })()}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.error) {
+            errorEl.textContent = data.error;
+            errorEl.style.display = '';
+            btn.disabled = false;
+            btn.textContent = 'delete';
+        } else {
+            window.location.href = '/accounts/dashboard/';
+        }
+    }).catch(function() {
+        errorEl.textContent = 'Something went wrong. Please try again.';
+        errorEl.style.display = '';
+        btn.disabled = false;
+        btn.textContent = 'delete';
+    });
+}
+</script>
 {% endif %}
 
 {% endblock %}

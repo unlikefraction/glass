@@ -9,6 +9,7 @@ from accounts.views import (
     LogoutView,
     ProfileView,
     SiliconCreateView,
+    SiliconDeleteView,
 )
 
 urlpatterns = [
@@ -20,4 +21,5 @@ urlpatterns = [
     path("api/carbon/profile/", CarbonProfileView.as_view(), name="carbon_profile"),
     path("api/carbon/update/", CarbonUpdateView.as_view(), name="carbon_update"),
     path("api/silicons/create/", SiliconCreateView.as_view(), name="silicon_create"),
+    path("api/silicons/<str:username>/delete/", SiliconDeleteView.as_view(), name="silicon_delete"),
 ]
